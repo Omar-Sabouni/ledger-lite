@@ -1,0 +1,161 @@
+x-app-environment: &app-environment
+  APP_ENV: local
+  DATABASE_CONNECT_TIMEOUT_SECONDS: "5"
+  DATABASE_STATEMENT_TIMEOUT_MS: "10000"
+  DATABASE_LOCK_TIMEOUT_MS: "3000"
+  DATABASE_POOL_TIMEOUT_SECONDS: "5"
+  DATABASE_POOL_SIZE: "5"
+  DATABASE_MAX_OVERFLOW: "5"
+  LOG_LEVEL: INFO
+
+x-hardened-service: &hardened-service
+  read_only: true
+  init: true
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  tmpfs:
+    - /tmp:size=16m,mode=1777
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ledgerlite
+      POSTGRES_USER: ledgerlite
+      POSTGRES_PASSWORD: ${LEDGERLITE_BOOTSTRAP_PASSWORD:-ledgerlite}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledgerlite -d ledgerlite"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    restart: unless-stopped
+    stop_grace_period: 30s
+    volumes:
+      - ledgerlite-db:/var/lib/postgresql/data
+      - ledgerlite-db-socket:/var/run/postgresql
+
+  db-bootstrap:
+    <<: *hardened-service
+    image: postgres:16-alpine
+    user: postgres
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      POSTGRES_DB: ledgerlite
+      POSTGRES_USER: ledgerlite
+      LEDGERLITE_MIGRATOR_PASSWORD: ${LEDGERLITE_MIGRATOR_PASSWORD:-ledgerlite-migrator-local}
+      LEDGERLITE_APP_PASSWORD: ${LEDGERLITE_APP_PASSWORD:-ledgerlite-app-local}
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/bootstrap/bootstrap-db.sh"]
+    restart: "no"
+    volumes:
+      - ./scripts/bootstrap-db.sh:/bootstrap/bootstrap-db.sh:ro
+      - ledgerlite-db-socket:/var/run/postgresql
+
+  migrate:
+    <<: *hardened-service
+    image: ledgerlite:local
+    build:
+      context: .
+      target: runtime
+    environment:
+      <<: *app-environment
+      DATABASE_URL: postgresql+psycopg://ledgerlite_migrator:${LEDGERLITE_MIGRATOR_PASSWORD:-ledgerlite-migrator-local}@db:5432/ledgerlite
+    depends_on:
+      db-bootstrap:
+        condition: service_completed_successfully
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  db-grants:
+    <<: *hardened-service
+    image: postgres:16-alpine
+    user: postgres
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      POSTGRES_DB: ledgerlite
+      POSTGRES_USER: ledgerlite
+      LEDGERLITE_MIGRATOR_PASSWORD: ${LEDGERLITE_MIGRATOR_PASSWORD:-ledgerlite-migrator-local}
+      LEDGERLITE_APP_PASSWORD: ${LEDGERLITE_APP_PASSWORD:-ledgerlite-app-local}
+      LEDGERLITE_FINALIZE_GRANTS: "0"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    entrypoint: ["/bin/sh", "/bootstrap/bootstrap-db.sh"]
+    restart: "no"
+    volumes:
+      - ./scripts/bootstrap-db.sh:/bootstrap/bootstrap-db.sh:ro
+      - ledgerlite-db-socket:/var/run/postgresql
+
+  seed:
+    <<: *hardened-service
+    image: ledgerlite:local
+    build:
+      context: .
+      target: runtime
+    environment:
+      <<: *app-environment
+      DATABASE_URL: postgresql+psycopg://ledgerlite_migrator:${LEDGERLITE_MIGRATOR_PASSWORD:-ledgerlite-migrator-local}@db:5432/ledgerlite
+    depends_on:
+      db-grants:
+        condition: service_completed_successfully
+    command: ["python", "-m", "app.seed"]
+    restart: "no"
+
+  db-finalize:
+    <<: *hardened-service
+    image: postgres:16-alpine
+    user: postgres
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      POSTGRES_DB: ledgerlite
+      POSTGRES_USER: ledgerlite
+      LEDGERLITE_MIGRATOR_PASSWORD: ${LEDGERLITE_MIGRATOR_PASSWORD:-ledgerlite-migrator-local}
+      LEDGERLITE_APP_PASSWORD: ${LEDGERLITE_APP_PASSWORD:-ledgerlite-app-local}
+      LEDGERLITE_FINALIZE_GRANTS: "1"
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    entrypoint: ["/bin/sh", "/bootstrap/bootstrap-db.sh"]
+    restart: "no"
+    volumes:
+      - ./scripts/bootstrap-db.sh:/bootstrap/bootstrap-db.sh:ro
+      - ledgerlite-db-socket:/var/run/postgresql
+
+  api:
+    <<: *hardened-service
+    image: ledgerlite:local
+    build:
+      context: .
+      target: runtime
+    environment:
+      <<: *app-environment
+      DATABASE_URL: postgresql+psycopg://ledgerlite_app:${LEDGERLITE_APP_PASSWORD:-ledgerlite-app-local}@db:5432/ledgerlite
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db-finalize:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import urllib.request;
+          response = urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=2);
+          raise SystemExit(0 if response.status == 200 else 1)
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+    stop_grace_period: 15s
+
+volumes:
+  ledgerlite-db:
+  ledgerlite-db-socket:
