@@ -1,0 +1,113 @@
+:root {
+  color-scheme: light;
+}
+
+.docs-toolbar,
+.docs-toolbar *,
+.docs-skip-link {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: #d9dee1;
+}
+
+body.docs-page {
+  min-width: 320px;
+  margin: 0;
+  overflow-x: clip;
+  background: #ffffff;
+  font-family: Tahoma, Geneva, Arial, sans-serif;
+}
+
+.docs-skip-link {
+  position: absolute;
+  z-index: 10000;
+  top: 8px;
+  left: 8px;
+  padding: 6px 10px;
+  color: #ffffff;
+  background: #111820;
+  border: 2px solid #b7d600;
+  font: 700 12px/1.4 "Lucida Console", Monaco, Consolas, monospace;
+  text-decoration: none;
+  transform: translateY(-180%);
+}
+
+.docs-skip-link:focus {
+  outline: 2px solid #b7d600;
+  outline-offset: 2px;
+  transform: none;
+}
+
+.docs-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 24px;
+  padding: 10px 24px;
+  color: #ffffff;
+  background: #003f6b;
+  border-top: 6px solid #111820;
+  border-bottom: 4px solid #b7d600;
+  font: 13px/1.45 Tahoma, Geneva, Arial, sans-serif;
+}
+
+.docs-warning {
+  min-width: 0;
+  margin: 0;
+}
+
+.docs-warning strong {
+  color: #b7d600;
+  font-weight: 700;
+}
+
+.docs-formats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  white-space: nowrap;
+}
+
+.docs-formats a {
+  color: #ffffff;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.docs-formats a:hover {
+  text-decoration-thickness: 2px;
+}
+
+.docs-formats a[aria-current="page"] {
+  padding: 3px 6px;
+  border: 1px solid #ffffff;
+  background: #111820;
+  color: #b7d600;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.docs-formats a:focus-visible {
+  outline: 2px solid #b7d600;
+  outline-offset: 2px;
+}
+
+#api-reference:focus {
+  outline: none;
+}
+
+@media (max-width: 700px) {
+  .docs-toolbar {
+    grid-template-columns: 1fr;
+    padding: 9px 12px 10px;
+  }
+
+  .docs-formats {
+    gap: 14px;
+    overflow-x: auto;
+  }
+}
