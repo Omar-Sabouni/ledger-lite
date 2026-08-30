@@ -1,0 +1,179 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend quality and PostgreSQL integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ledgerlite_test
+          POSTGRES_USER: ledgerlite
+          POSTGRES_PASSWORD: ledgerlite
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ledgerlite -d ledgerlite_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg://ledgerlite:ledgerlite@localhost:5432/ledgerlite_test
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install backend
+        run: |
+          python -m pip install --constraint requirements-dev.txt hatchling editables
+          python -m pip install --no-build-isolation \
+            --constraint requirements-dev.txt -e ".[dev]"
+          python -m pip check
+      - name: Lint and compile
+        run: |
+          python -m compileall -q app alembic tests
+          make lint PYTHON=python
+      - name: Unit tests
+        run: >-
+          python -m pytest -m "not integration"
+          --cov=app --cov-branch --cov-report=
+      - name: Migrations and PostgreSQL integration tests
+        run: |
+          python -m alembic upgrade head
+          python -m alembic check
+          python -m pytest -m integration \
+            --cov=app --cov-branch --cov-append \
+            --cov-report=term-missing --cov-fail-under=85
+
+  frontend:
+    name: Frontend typecheck and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+
+  container:
+    name: Hardened runtime image and Compose smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Validate deployment manifests
+        run: |
+          sh -n scripts/bootstrap-db.sh
+          docker compose config --quiet
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          target: runtime
+          load: true
+          tags: ledgerlite:local
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Start local services
+        run: docker compose up --no-build --wait api
+      - name: Verify health and database privilege boundaries
+        run: |
+          curl --fail --silent --show-error http://127.0.0.1:8000/readyz
+          transfer_response="$(curl --fail --silent --show-error \
+            --request POST http://127.0.0.1:8000/api/v1/transfers \
+            --header 'Content-Type: application/json' \
+            --header 'Idempotency-Key: ci-runtime-role-transfer' \
+            --data '{
+              "source_account_id":"11000000-0000-4000-8000-000000000001",
+              "destination_account_id":"11000000-0000-4000-8000-000000000002",
+              "amount":"1.00"
+            }')"
+          transaction_id="$(printf '%s' "${transfer_response}" | jq --raw-output '.transaction_id')"
+          test "${transaction_id}" != "null"
+          curl --fail --silent --show-error \
+            --request POST \
+            "http://127.0.0.1:8000/api/v1/transactions/${transaction_id}/reversals" \
+            --header 'Content-Type: application/json' \
+            --header 'Idempotency-Key: ci-runtime-role-reversal' \
+            --data '{
+              "reason_code":"operator_correction",
+              "note":"Restricted-role CI smoke"
+            }'
+          curl --fail --silent --show-error \
+            --request POST \
+            http://127.0.0.1:8000/api/v1/reconciliation/runs/41000000-0000-4000-8000-000000000001/execute
+          docker compose exec -T db psql \
+            --username=ledgerlite \
+            --dbname=ledgerlite \
+            --set=ON_ERROR_STOP=1 \
+            --command="DO \$verify\$
+              BEGIN
+                IF has_table_privilege('ledgerlite_app', 'public.alembic_version', 'SELECT')
+                  OR has_table_privilege('ledgerlite_app', 'public.ledger_entries', 'UPDATE')
+                  OR has_table_privilege('ledgerlite_app', 'public.reconciliation_runs', 'INSERT')
+                  OR has_table_privilege('ledgerlite_app', 'public.reconciliation_items', 'INSERT')
+                  OR has_table_privilege('ledgerlite_app', 'public.outbox_events', 'INSERT')
+                  OR has_column_privilege('ledgerlite_app', 'public.reconciliation_items', 'amount', 'UPDATE')
+                  OR has_column_privilege('ledgerlite_app', 'public.ledger_transactions', 'posting_sequence', 'INSERT')
+                  OR has_column_privilege('ledgerlite_app', 'public.outbox_events', 'id', 'INSERT')
+                  OR has_table_privilege('ledgerlite_app', 'public.accounts', 'UPDATE')
+                  OR has_table_privilege('ledgerlite_app', 'public.ledger_transactions', 'UPDATE')
+                  OR has_column_privilege('ledgerlite_app', 'public.accounts', 'display_name', 'UPDATE')
+                  OR has_column_privilege('ledgerlite_app', 'public.ledger_transactions', 'amount', 'UPDATE')
+                  OR NOT has_column_privilege('ledgerlite_app', 'public.accounts', 'currency', 'UPDATE')
+                  OR NOT has_column_privilege('ledgerlite_app', 'public.ledger_transactions', 'id', 'UPDATE')
+                  OR NOT has_column_privilege('ledgerlite_app', 'public.reconciliation_items', 'resolution_status', 'UPDATE')
+                  OR has_sequence_privilege('ledgerlite_app', 'public.ledger_transactions_posting_sequence_seq', 'USAGE')
+                  OR has_sequence_privilege('ledgerlite_app', 'public.outbox_events_id_seq', 'USAGE')
+                  OR has_function_privilege('ledgerlite_app', 'public.ledger_reject_mutation()', 'EXECUTE')
+                  OR has_function_privilege('ledgerlite_app', 'public.outbox_assign_commit_order_id()', 'EXECUTE')
+                  OR has_function_privilege('ledgerlite_app', 'public.reconciliation_assert_consistent(uuid)', 'EXECUTE')
+                  OR has_function_privilege('ledgerlite_app', 'public.reconciliation_validate_consistency()', 'EXECUTE')
+                  OR NOT has_function_privilege('ledgerlite_app', 'public.ledger_assert_balanced(uuid)', 'EXECUTE')
+                  OR NOT has_function_privilege('ledgerlite_app', 'public.reconciliation_insert_ledger_only(uuid, uuid, uuid)', 'EXECUTE')
+                  OR (SELECT rolcanlogin FROM pg_roles WHERE rolname = 'ledgerlite_migrator')
+                  OR (SELECT rolpassword IS NOT NULL FROM pg_authid WHERE rolname = 'ledgerlite')
+                THEN
+                  RAISE EXCEPTION 'runtime database privilege boundary is incorrect';
+                END IF;
+              END
+            \$verify\$;"
+      - name: Stop local services
+        if: always()
+        run: docker compose down --volumes
