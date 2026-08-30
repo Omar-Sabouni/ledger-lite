@@ -12,7 +12,7 @@ COPY frontend/ ./
 RUN npm run build
 
 
-FROM python:3.12-slim AS python-build
+FROM python:3.14-slim AS python-build
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
@@ -27,7 +27,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
        --wheel-dir /wheels .
 
 
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
