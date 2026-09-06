@@ -95,7 +95,7 @@ python-dotenv==1.2.3
     #   uvicorn
 pyyaml==6.0.3
     # via uvicorn
-ruff==0.16.4
+ruff==0.16.5
     # via ledger-lite (pyproject.toml)
 sqlalchemy==2.0.52
     # via
