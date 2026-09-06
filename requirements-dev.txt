@@ -71,7 +71,7 @@ pluggy==1.6.0
     #   pytest-cov
 psycopg==3.3.4
     # via ledger-lite (pyproject.toml)
-psycopg-binary==3.3.4
+psycopg-binary==3.3.5
     # via psycopg
 pydantic==2.13.4
     # via
