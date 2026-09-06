@@ -22,7 +22,7 @@ certifi==2026.7.22
     #   httpx
 click==8.4.2
     # via uvicorn
-coverage==7.15.4
+coverage==7.16.0
     # via pytest-cov
 editables==0.6
     # via ledger-lite (pyproject.toml::build-system.backend::editable)
