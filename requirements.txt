@@ -30,7 +30,7 @@ mako==1.4.1
     # via alembic
 markupsafe==3.0.3
     # via mako
-psycopg==3.3.4
+psycopg==3.3.5
     # via ledger-lite (pyproject.toml)
 psycopg-binary==3.3.4
     # via psycopg

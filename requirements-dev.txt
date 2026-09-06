@@ -69,7 +69,7 @@ pluggy==1.6.0
     #   hatchling
     #   pytest
     #   pytest-cov
-psycopg==3.3.4
+psycopg==3.3.5
     # via ledger-lite (pyproject.toml)
 psycopg-binary==3.3.4
     # via psycopg
