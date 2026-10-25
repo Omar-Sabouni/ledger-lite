@@ -28,7 +28,7 @@ idna==3.19
     # via anyio
 mako==1.4.1
     # via alembic
-markupsafe==3.0.3
+markupsafe==3.0.4
     # via mako
 psycopg==3.3.4
     # via ledger-lite (pyproject.toml)

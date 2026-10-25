@@ -56,7 +56,7 @@ iniconfig==2.3.0
     # via pytest
 mako==1.4.1
     # via alembic
-markupsafe==3.0.3
+markupsafe==3.0.4
     # via mako
 packaging==26.3
     # via
