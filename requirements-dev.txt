@@ -54,7 +54,7 @@ idna==3.19
     #   httpx2
 iniconfig==2.3.0
     # via pytest
-mako==1.4.1
+mako==1.4.3
     # via alembic
 markupsafe==3.0.3
     # via mako
