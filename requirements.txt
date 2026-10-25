@@ -70,7 +70,7 @@ typing-inspection==0.4.4
     #   fastapi
     #   pydantic
     #   pydantic-settings
-uvicorn==0.52.4
+uvicorn==0.54.0
     # via ledger-lite (pyproject.toml)
 uvloop==0.22.1
     # via uvicorn
