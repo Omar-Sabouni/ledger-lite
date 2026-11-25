@@ -36,11 +36,11 @@ docker compose up --build
 
 ## Using the console
 
-- **Control totals** shows customer funds, the clearing position, journal counts,
+- **Today** shows customer funds, the clearing position, journal counts,
   open reconciliation exceptions, and service state.
 - **Journal** filters transactions and accounts. Open a transaction to inspect its
   signed postings or create an eligible reversal. Open an account for its statement.
-- **Reconciliation** compares processor records with ledger transactions and lets
+- **Reconciliation** compares bank records with ledger transactions and lets
   an operator match or ignore unresolved items without changing the journal.
 
 ## Ledger rules

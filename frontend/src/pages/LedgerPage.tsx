@@ -22,8 +22,26 @@ type PeriodFilter = "all" | "7d" | "30d";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+function sentence(text: string) {
+  const trimmed = text.trim();
+  if (!trimmed) return trimmed;
+  const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  return /[.!?]$/.test(capitalized) ? capitalized : `${capitalized}.`;
+}
+
 function errorDescription(error: unknown, fallback: string) {
-  return isApiError(error) ? error.problem.detail : fallback;
+  return isApiError(error) && error.problem.detail ? sentence(error.problem.detail) : fallback;
+}
+
+const REVERSAL_ERRORS: Record<string, string> = {
+  transaction_already_reversed: "This transaction has already been reversed.",
+  insufficient_reversal_funds: "The account that received this money no longer holds enough to return it.",
+  reversal_of_reversal: "A reversal can't itself be reversed.",
+};
+
+function reversalErrorDescription(error: unknown) {
+  if (isApiError(error) && REVERSAL_ERRORS[error.code]) return REVERSAL_ERRORS[error.code];
+  return errorDescription(error, "The reversal failed. Try again.");
 }
 
 function accountLabel(name: string | null, id: string) {
@@ -108,9 +126,8 @@ function PostingBreakdown({ transaction }: { transaction: TransactionDetail }) {
       </div>
       <dl className="posting-summary">
         <div><dt>Entries</dt><dd><StatusPill tone={transaction.integrity.entry_count === 2 ? "positive" : "critical"}>{transaction.integrity.entry_count}</StatusPill></dd></div>
-        <div><dt>Posting sum</dt><dd><StatusPill tone={transaction.integrity.balanced ? "positive" : "critical"}>{transaction.integrity.balanced ? "BALANCED" : "IMBALANCED"}</StatusPill></dd></div>
-        <div><dt>Currency</dt><dd><StatusPill tone={transaction.integrity.currency_consistent ? "positive" : "critical"}>{transaction.integrity.currency_consistent ? "CONSISTENT" : "MIXED"}</StatusPill></dd></div>
-        <div><dt>Transaction</dt><dd><StatusPill tone="info">COMPLETE</StatusPill></dd></div>
+        <div><dt>Posting sum</dt><dd><StatusPill tone={transaction.integrity.balanced ? "positive" : "critical"}>{transaction.integrity.balanced ? "Balanced" : "Unbalanced"}</StatusPill></dd></div>
+        <div><dt>Currency</dt><dd><StatusPill tone={transaction.integrity.currency_consistent ? "positive" : "critical"}>{transaction.integrity.currency_consistent ? "One currency" : "Mixed currencies"}</StatusPill></dd></div>
       </dl>
     </section>
   );
@@ -176,7 +193,7 @@ function TransactionInspector({
         <>
           <dl className="detail-meta">
             <div><dt>Amount</dt><dd className="money">{formatMoney(transaction.amount, transaction.currency)}</dd></div>
-            <div><dt>State</dt><dd><StatusPill tone={transaction.integrity.balanced ? "positive" : "critical"}>{transaction.integrity.balanced ? "Balanced" : "Needs attention"}</StatusPill></dd></div>
+            <div><dt>State</dt><dd><StatusPill tone={transaction.integrity.balanced ? "positive" : "critical"}>{transaction.integrity.balanced ? "Balanced" : "Unbalanced"}</StatusPill></dd></div>
             <div><dt>Transaction ID</dt><dd className="mono">{transaction.id}</dd></div>
             <div><dt>Posted</dt><dd><time dateTime={transaction.created_at}>{formatDubaiDateTime(transaction.created_at)}</time><br /><span className="subtle">{formatUtcDateTime(transaction.created_at)}</span></dd></div>
           </dl>
@@ -185,9 +202,9 @@ function TransactionInspector({
           {transaction.reverses_transaction_id || transaction.reversed_by_transaction_id ? (
             <div className="lineage">
               <strong>Reversal pair</strong>
-              {transaction.reverses_transaction_id ? <p>This compensating transaction reverses <span className="mono">{shortId(transaction.reverses_transaction_id)}</span>.</p> : null}
+              {transaction.reverses_transaction_id ? <p>Reverses <span className="mono">{shortId(transaction.reverses_transaction_id)}</span>.</p> : null}
               {transaction.reversal_reason_code ? <p>Reason: <strong>{transaction.reversal_reason_code.replaceAll("_", " ")}</strong>{transaction.reversal_note ? ` — ${transaction.reversal_note}` : ""}</p> : null}
-              {transaction.reversed_by_transaction_id ? <p>The original entries remain untouched. Reversed by <span className="mono">{shortId(transaction.reversed_by_transaction_id)}</span>.</p> : null}
+              {transaction.reversed_by_transaction_id ? <p>Reversed by <span className="mono">{shortId(transaction.reversed_by_transaction_id)}</span>.</p> : null}
             </div>
           ) : null}
 
@@ -195,7 +212,7 @@ function TransactionInspector({
             reversalOpen ? (
               <section className="journal-breakdown" aria-labelledby="reversal-title">
                 <h3 id="reversal-title">Reverse this transaction?</h3>
-                <p className="subtle">The original journal entries stay untouched. LedgerLite will post an equal and opposite transaction.</p>
+                <p className="subtle">Posts an equal and opposite transaction.</p>
                 <div className="field">
                   <label htmlFor="reversal-reason">Reason</label>
                   <select id="reversal-reason" value={reason} onChange={(event) => setReason(event.target.value as ReversalReasonCode)}>
@@ -209,7 +226,7 @@ function TransactionInspector({
                   <label htmlFor="reversal-note">Operator note <span className="subtle">(optional)</span></label>
                   <textarea id="reversal-note" maxLength={240} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Why?" />
                 </div>
-                {submitError ? <div className="scenario-error" role="alert">{isApiError(submitError) && submitError.status === 409 ? "Reversal could not be posted. The transaction may already be reversed, or the returning account has insufficient funds." : errorDescription(submitError, "Reversal could not be posted.")}</div> : null}
+                {submitError ? <div className="scenario-error" role="alert">{reversalErrorDescription(submitError)}</div> : null}
                 <div className="dialog__actions"><Button onClick={() => setReversalOpen(false)}>Keep transaction</Button><Button variant="danger" busy={submitting} onClick={() => void reverse()}>Post reversal</Button></div>
               </section>
             ) : (

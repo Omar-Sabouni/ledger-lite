@@ -136,7 +136,7 @@ export function App() {
           <Brand />
           {offline ? (
             <p className="connection-note" role="status">
-              {apiReady === false ? "Can’t reach the ledger service." : eventStatus === "connecting" ? "Connecting for live updates…" : "Live updates paused. Reconnecting…"}
+              {apiReady === false ? "Can’t reach LedgerLite. Start it with docker compose up." : eventStatus === "connecting" ? "Connecting for live updates…" : "Live updates paused. Reconnecting…"}
             </p>
           ) : null}
         </header>
