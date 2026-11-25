@@ -130,7 +130,7 @@ export function App() {
 
   return (
     <div className="app-shell">
-      <a className="skip-link" href="#console-main">Skip to the books</a>
+      <a className="skip-link" href="#console-main">Skip to content</a>
       <div className="book">
         <header className="book__head">
           <Brand />
@@ -149,7 +149,7 @@ export function App() {
         </main>
 
         <footer className="book__foot">
-          <p>Demo only: no logins, no real money.</p>
+          <p>This is a demo with no logins and no real money.</p>
           {capabilities?.documentation ? <a href="/docs" target="_blank" rel="noreferrer">API reference</a> : null}
         </footer>
 

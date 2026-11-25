@@ -224,7 +224,7 @@ function TransactionInspector({
                 </div>
                 <div className="field field--spaced">
                   <label htmlFor="reversal-note">Operator note <span className="subtle">(optional)</span></label>
-                  <textarea id="reversal-note" maxLength={240} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Why?" />
+                  <textarea id="reversal-note" maxLength={240} value={note} onChange={(event) => setNote(event.target.value)} />
                 </div>
                 {submitError ? <div className="scenario-error" role="alert">{reversalErrorDescription(submitError)}</div> : null}
                 <div className="dialog__actions"><Button onClick={() => setReversalOpen(false)}>Keep transaction</Button><Button variant="danger" busy={submitting} onClick={() => void reverse()}>Post reversal</Button></div>

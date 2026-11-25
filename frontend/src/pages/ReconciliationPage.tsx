@@ -97,7 +97,7 @@ function FindingTable({ items, onReview }: { items: ReconciliationItem[]; onRevi
   if (items.length === 0) return <EmptyState title="Everything matches" description="" />;
   return (
     <div className="table-scroller" tabIndex={0} aria-label="Reconciliation findings">
-      <table className="data-table findings-table"><caption className="sr-only">Bank lines compared with the books</caption><thead><tr><th scope="col">Result</th><th scope="col">Bank reference</th><th scope="col" className="money">Amount</th><th scope="col"><span className="sr-only">Action</span></th></tr></thead><tbody>
+      <table className="data-table findings-table"><caption className="sr-only">Bank lines compared with the ledger</caption><thead><tr><th scope="col">Result</th><th scope="col">Bank reference</th><th scope="col" className="money">Amount</th><th scope="col"><span className="sr-only">Action</span></th></tr></thead><tbody>
         {items.map((item) => <tr key={item.id}><td>{RESULT_LABELS[item.result]}{item.resolution_status !== "open" ? <span className="entry-note"> ({item.resolution_status})</span> : null}</td><td>{item.provider_reference ?? "—"}</td><td className="money">{formatMoney(item.amount, item.currency)}</td><td>{item.resolution_status === "open" && item.result !== "matched" ? <Button variant="quiet" onClick={() => onReview(item)}>Review</Button> : null}</td></tr>)}
       </tbody></table>
     </div>
@@ -189,17 +189,17 @@ export function ReconciliationPage({ refreshSignal }: { refreshSignal: number })
       {runs.error ? <ErrorState title="Reconciliation unavailable" description={isApiError(runs.error) ? runs.error.problem.detail : "Runs could not be loaded."} requestId={isApiError(runs.error) ? runs.error.requestId : undefined} onRetry={runs.refresh} /> : runs.loading && !runs.data ? <Card><Skeleton lines={3} /></Card> : !run ? <Card><EmptyState title="No settlement available" description="Post some entries first." /></Card> : (
         <>
           <p className="balance-statement">
-            {run.provider}, {formatDubaiDate(run.period_start)} to {formatDubaiDate(run.period_end)}.{" "}
+            {run.provider} statement from {formatDubaiDate(run.period_start)} to {formatDubaiDate(run.period_end)}.{" "}
             {run.status !== "completed" || !counts
-              ? "Not checked yet."
-              : `${counts.matched.toLocaleString("en-AE")} matched, ${counts.open_exceptions.toLocaleString("en-AE")} still open.`}
-            {grossVolume && !grossVolume.difference.replace(/[-0.]/g, "") ? null : grossVolume ? <> The bank is off by <strong>{formatMoney(grossVolume.difference, grossVolume.currency)}</strong>.</> : null}
+              ? "It hasn't been checked yet."
+              : `${counts.matched.toLocaleString("en-AE")} lines matched, and ${counts.open_exceptions.toLocaleString("en-AE")} are still open.`}
+            {grossVolume && !grossVolume.difference.replace(/[-0.]/g, "") ? null : grossVolume ? <> The bank total differs from the ledger by <strong>{formatMoney(grossVolume.difference, grossVolume.currency)}</strong>.</> : null}
           </p>
           <p><Button variant="primary" busy={executing} onClick={() => void execute()}>{run.status === "completed" ? "Check again" : "Check against the bank"}</Button>{run.completed_at ? <span className="subtle"> Last checked {formatDubaiDateTime(run.completed_at)}.</span> : null}</p>
           {executeError ? <div className="scenario-error" role="alert">{isApiError(executeError) ? executeError.problem.detail : "The check didn’t finish."}</div> : null}
 
           {run.status === "pending" ? null : <Card className="panel">
-            <div className="panel__header panel__header--filters"><div><h2>Line by line</h2></div><div className="filter-chips" aria-label="Finding filter">{(["all", "open", "matched"] as Filter[]).map((value) => <button key={value} className="filter-chip" type="button" aria-pressed={filter === value} onClick={() => setFilter(value)}>{value === "open" ? "Still open" : value === "all" ? "All" : "Matched"}</button>)}</div></div>
+            <div className="panel__header panel__header--filters"><div><h2>Bank lines</h2></div><div className="filter-chips" aria-label="Finding filter">{(["all", "open", "matched"] as Filter[]).map((value) => <button key={value} className="filter-chip" type="button" aria-pressed={filter === value} onClick={() => setFilter(value)}>{value === "open" ? "Still open" : value === "all" ? "All" : "Matched"}</button>)}</div></div>
             {itemsError ? <ErrorState description={isApiError(itemsError) ? itemsError.problem.detail : "Findings could not be loaded."} onRetry={() => void loadItems(run, filter)} /> : itemsLoading && !items ? <Skeleton lines={6} compact /> : <FindingTable items={visibleItems} onReview={setSelected} />}
             {items?.next_cursor ? loadMoreError ? <PaginationError description={isApiError(loadMoreError) ? loadMoreError.problem.detail : "More findings could not be loaded."} onRetry={() => void loadMore()} /> : <div className="load-more"><Button busy={loadingMore} onClick={() => void loadMore()}>Load more</Button></div> : null}
           </Card>}

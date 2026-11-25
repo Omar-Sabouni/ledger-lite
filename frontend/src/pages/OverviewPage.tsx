@@ -80,12 +80,12 @@ export function OverviewPage({ refreshSignal }: OverviewPageProps) {
     <section aria-labelledby="overview-title">
       <SectionHeading
         id="overview-title"
-        title="Today’s books"
+        title="Today"
       />
 
       {overview.error ? (
         <ErrorState
-          title="Couldn’t load the books"
+          title="Couldn’t load the ledger"
           headingLevel="h2"
           description="The ledger service didn’t answer."
           requestId={isApiError(overview.error) ? overview.error.requestId : undefined}
@@ -97,8 +97,8 @@ export function OverviewPage({ refreshSignal }: OverviewPageProps) {
         <>
           <p className={`balance-statement ${integrityVerified ? "" : "balance-statement--off"}`} role="status">
             {integrityVerified
-              ? "The books balance."
-              : <>The books are off by <strong>{currency ? formatMoney(currency.net_imbalance, currency.currency) : "an unknown amount"}</strong>.</>}
+              ? "The ledger balances."
+              : <>The ledger is off by <strong>{currency ? formatMoney(currency.net_imbalance, currency.currency) : "an unknown amount"}</strong>.</>}
             {" "}
             <span className="as-of">As of <time dateTime={overview.data.as_of}>{formatDubaiDateTime(overview.data.as_of)}</time>.</span>
           </p>
@@ -114,7 +114,7 @@ export function OverviewPage({ refreshSignal }: OverviewPageProps) {
                 </tbody>
               </table>
             </div>
-            <p className="subtle">{plural(overview.data.integrity.transaction_count, "transaction")}, {plural(overview.data.integrity.reversal_count, "reversal")}, {overview.data.integrity.open_reconciliation_exceptions === 0 ? "nothing unmatched at the bank" : `${plural(overview.data.integrity.open_reconciliation_exceptions, "unmatched bank line")}`}.</p>
+            <p className="subtle">The ledger has {plural(overview.data.integrity.transaction_count, "transaction")} and {plural(overview.data.integrity.reversal_count, "reversal")}. {overview.data.integrity.open_reconciliation_exceptions === 0 ? "Every bank line is matched." : `${plural(overview.data.integrity.open_reconciliation_exceptions, "bank line")} ${overview.data.integrity.open_reconciliation_exceptions === 1 ? "is" : "are"} unmatched.`}</p>
           </section>
 
           <section className="register-section" aria-labelledby="recent-title">
