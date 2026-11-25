@@ -120,7 +120,7 @@ async function readJson(response: Response): Promise<unknown> {
       type: "about:blank",
       title: "Invalid server response",
       status: response.status,
-      detail: "LedgerLite returned a response that was not valid JSON.",
+      detail: "LedgerLite sent a bad response. Reload the page.",
       code: "invalid_response",
       instance: new URL(response.url, globalThis.location?.href).pathname,
       request_id: response.headers.get("X-Request-ID") ?? "unavailable",
@@ -224,7 +224,7 @@ export function createIdempotencyKey(operation = "console"): string {
     throw new TypeError("Idempotency key prefix contains unsupported characters");
   }
   if (typeof globalThis.crypto?.randomUUID !== "function") {
-    throw new Error("This browser cannot generate secure idempotency keys");
+    throw new Error("This browser is too old for LedgerLite. Use a current version of Chrome, Firefox or Safari.");
   }
   return `${operation}-${globalThis.crypto.randomUUID()}`;
 }
@@ -301,7 +301,7 @@ export class LedgerApiClient {
       throw new ApiError(
         clientProblem(
           "network_error",
-          "LedgerLite is unreachable. Check that the local stack is running.",
+          "Can’t reach LedgerLite. Start it with docker compose up.",
         ),
         { cause: error },
       );

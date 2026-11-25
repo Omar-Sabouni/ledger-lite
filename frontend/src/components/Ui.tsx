@@ -22,7 +22,7 @@ export function Button({
       aria-busy={busy || undefined}
       {...props}
     >
-      <span>{busy ? "Working / " : ""}{children}</span>
+      <span>{children}{busy ? "…" : ""}</span>
     </button>
   );
 }
@@ -83,7 +83,7 @@ export function EmptyState({
   action
 }: {
   title: string;
-  description: string;
+  description?: string;
   action?: ReactNode;
 }) {
   return (

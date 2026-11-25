@@ -34,7 +34,7 @@ function primaryCurrency(currencies: OverviewCurrency[]): OverviewCurrency | nul
 
 function RecentTransactions({ items }: { items: TransactionSummary[] }) {
   if (items.length === 0) {
-    return <EmptyState title="Nothing posted yet" description="Entries appear here as soon as they are posted." />;
+    return <EmptyState title="Nothing posted yet" />;
   }
   return (
     <div className="table-scroller" tabIndex={0} aria-label="Recent ledger transactions">

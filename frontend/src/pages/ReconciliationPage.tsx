@@ -11,12 +11,12 @@ import type { ReconciliationItem, ReconciliationItemListParams, ReconciliationIt
 type Filter = "all" | "open" | ReconciliationItemResult;
 
 const RESULT_LABELS: Record<ReconciliationItemResult, string> = {
-  pending: "Pending comparison",
+  pending: "Not checked yet",
   matched: "Matched",
-  provider_only: "Provider only",
+  provider_only: "Bank only",
   ledger_only: "Ledger only",
   mismatched: "Field mismatch",
-  duplicate: "Duplicate claim"
+  duplicate: "Duplicate"
 };
 
 function toneForItem(item: ReconciliationItem): "positive" | "warning" | "neutral" | "info" {
@@ -34,8 +34,8 @@ function ledgerAmountComparison(item: ReconciliationItem): string {
   if (item.result === "provider_only") return "No ledger record";
   if (item.mismatch_code === "amount_mismatch") return "Amount differs";
   if (item.mismatch_code === "currency_mismatch") return "Currency differs";
-  if (item.mismatch_code === "transaction_type_mismatch") return "Ineligible transaction type";
-  if (item.result === "duplicate") return "Claimed twice";
+  if (item.mismatch_code === "transaction_type_mismatch") return "Wrong transaction type";
+  if (item.result === "duplicate") return "Duplicate";
   return formatMoney(item.amount, item.currency);
 }
 
